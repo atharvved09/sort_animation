@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sorting Algorithm Visualizer</title>
+    <style>
+        :root {
+            --primary-color: #3b82f6;
+            --secondary-color: #ef4444;
+            --pivot-color: #10b981;
+            --sorted-color: #8b5cf6;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f3f4f6;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1 {
+            color: #1f2937;
+            margin-bottom: 20px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+
+        button {
+            padding: 10px 20px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background-color: #2563eb;
+        }
+
+        button:disabled {
+            background-color: #9ca3af;
+            cursor: not-allowed;
+        }
+
+        select, input {
+            padding: 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 5px;
+        }
+
+        .speed-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Visualization Container */
+        #container {
+            position: relative;
+            width: 600px;
+            height: 300px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin: 0 auto;
+        }
+
+        .bar {
+            position: absolute;
+            bottom: 0;
+            width: 40px; /* Width of each bar */
+            background-color: var(--primary-color);
+            border-radius: 5px 5px 0 0;
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            padding-bottom: 10px;
+            color: white;
+            font-weight: bold;
+            font-size: 14px;
+            transition: height 0.2s, background-color 0.2s;
+            /* The 'left' property will be animated via JS for movement */
+            transition: left 0.3s ease-in-out; 
+        }
+
+        .bar-label {
+            margin-bottom: 5px;
+        }
+
+    </style>
+</head>
+<body>
+
+    <h1>Sorting Visualizer</h1>
+
+    <div class="controls">
+        <button onclick="generateArray()">Generate New Array</button>
+        
+        <select id="algoSelect">
+            <option value="bubble">Bubble Sort</option>
+            <option value="simple">Simple Sort (Selection)</option>
+            <option value="quick">Quick Sort</option>
+            <option value="merge">Merge Sort</option>
+        </select>
+
+        <div class="speed-control">
+            <label for="speed">Speed:</label>
+            <input type="range" id="speed" min="100" max="1000" value="500">
+            <span>(Slow <-> Fast)</span>
+        </div>
+
+        <button onclick="startSort()" id="btnSort">Start Sorting</button>
+    </div>
+
+    <div id="container"></div>
+
+    <script>
+        const container = document.getElementById("container");
+        const speedInput = document.getElementById("speed");
+        const btnSort = document.getElementById("btnSort");
+        
+        let blocks = [];
+        let speed = 500;
+        
+        // Updates speed dynamically
+        speedInput.addEventListener('input', (e) => {
+            speed = 1100 - e.target.value; // Invert logic: Higher value = lower delay
+        });
+
+        // Generate 10 Random Numbers
+        function generateArray(size = 10) {
+            container.innerHTML = "";
+            blocks = [];
+            // Calculate width based on container size
+            const width = 600 / size; 
+            
+            for (let i = 0; i < size; i++) {
+                const value = Math.floor(Math.random() * 90) + 10; // Random 10-100
+                
+                const bar = document.createElement("div");
+                bar.classList.add("bar");
+                bar.style.height = `${value * 3}px`; // Scale height for visibility
+                bar.style.left = `${i * width + 10}px`; // Positioning with some gap
+                bar.style.width = `${width - 20}px`;
+                
+                // Add text inside
+                bar.innerText = value;
+
+                // Store object with Value and DOM Element
+                blocks.push({
+                    value: value,
+                    element: bar
+                });
+
+                container.appendChild(bar);
+            }
+        }
+
+        // Helper: Sleep to create animation delay
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        // Helper: Swap DOM positions and Array positions
+        async function swap(index1, index2) {
+            if (index1 === index2) return;
+
+            const el1 = blocks[index1].element;
+            const el2 = blocks[index2].element;
+
+            // Visual Highlight
+            el1.style.backgroundColor = "var(--secondary-color)";
+            el2.style.backgroundColor = "var(--secondary-color)";
+
+            // Wait a moment to see comparison
+            await sleep(speed);
+
+            // Swap Style Left (Visual Movement)
+            const style1 = window.getComputedStyle(el1);
+            const style2 = window.getComputedStyle(el2);
+            
+            const transform1 = el1.style.left;
+            const transform2 = el2.style.left;
+
+            el1.style.left = transform2;
+            el2.style.left = transform1;
+
+            // Wait for CSS transition
+            await sleep(speed);
+
+            // Swap in Array
+            let temp = blocks[index1];
+            blocks[index1] = blocks[index2];
+            blocks[index2] = temp;
+
+            // Remove Highlight
+            el1.style.backgroundColor = "var(--primary-color)";
+            el2.style.backgroundColor = "var(--primary-color)";
+        }
+
+        // --- ALGORITHMS ---
+
+        // 1. Bubble Sort
+        async function bubbleSort() {
+            for (let i = 0; i < blocks.length; i++) {
+                for (let j = 0; j < blocks.length - i - 1; j++) {
+                    // Highlight comparison
+                    blocks[j].element.style.backgroundColor = "orange";
+                    blocks[j+1].element.style.backgroundColor = "orange";
+                    
+                    if (blocks[j].value > blocks[j + 1].value) {
+                        await swap(j, j + 1);
+                    } else {
+                        // Just wait if no swap, to show we compared
+                        await sleep(speed / 2);
+                        blocks[j].element.style.backgroundColor = "var(--primary-color)";
+                        blocks[j+1].element.style.backgroundColor = "var(--primary-color)";
+                    }
+                }
+                blocks[blocks.length - 1 - i].element.style.backgroundColor = "var(--sorted-color)";
+            }
+            // Mark last one
+            blocks[0].element.style.backgroundColor = "var(--sorted-color)";
+        }
+
+        // 2. Simple Sort (Selection Sort)
+        async function selectionSort() {
+            for (let i = 0; i < blocks.length; i++) {
+                let minIdx = i;
+                blocks[i].element.style.backgroundColor = "orange"; // Current Position
+
+                for (let j = i + 1; j < blocks.length; j++) {
+                    blocks[j].element.style.backgroundColor = "red"; // Scanning
+
+                    await sleep(speed / 2);
+
+                    if (blocks[j].value < blocks[minIdx].value) {
+                        if (minIdx !== i) {
+                            blocks[minIdx].element.style.backgroundColor = "var(--primary-color)";
+                        }
+                        minIdx = j;
+                        blocks[minIdx].element.style.backgroundColor = "var(--pivot-color)"; // New Min Found
+                    } else {
+                        blocks[j].element.style.backgroundColor = "var(--primary-color)";
+                    }
+                }
+
+                if (minIdx !== i) {
+                    await swap(i, minIdx);
+                }
+                
+                blocks[i].element.style.backgroundColor = "var(--sorted-color)";
+            }
+        }
+
+        // 3. Quick Sort
+        async function quickSort(start = 0, end = blocks.length - 1) {
+            if (start < end) {
+                let pivotIdx = await partition(start, end);
+                await quickSort(start, pivotIdx - 1);
+                await quickSort(pivotIdx + 1, end);
+            } else if (start >= 0 && end >= 0 && start === end) {
+                 blocks[start].element.style.backgroundColor = "var(--sorted-color)";
+            }
+        }
+
+        async function partition(start, end) {
+            let pivotValue = blocks[end].value;
+            blocks[end].element.style.backgroundColor = "var(--pivot-color)"; // Pivot visual
+            
+            let pivotIndex = start;
+
+            for (let i = start; i < end; i++) {
+                blocks[i].element.style.backgroundColor = "orange"; // Current element
+                await sleep(speed / 2);
+
+                if (blocks[i].value < pivotValue) {
+                    await swap(i, pivotIndex);
+                    // Reset color after swap
+                    blocks[i].element.style.backgroundColor = "var(--primary-color)"; 
+                    // blocks[pivotIndex] was just swapped, reset it too
+                    if(pivotIndex !== i) blocks[pivotIndex].element.style.backgroundColor = "var(--primary-color)"; 
+                    
+                    pivotIndex++;
+                } else {
+                    blocks[i].element.style.backgroundColor = "var(--primary-color)";
+                }
+            }
+            
+            await swap(pivotIndex, end);
+            blocks[pivotIndex].element.style.backgroundColor = "var(--sorted-color)"; // Pivot is now sorted
+            return pivotIndex;
+        }
+
+        // 4. Merge Sort
+        // Visualizing Merge Sort in-place is tricky. 
+        // We will animate the movement of values by calculating where they should go.
+        async function mergeSort(start = 0, end = blocks.length - 1) {
+            if (start >= end) return;
+
+            const mid = Math.floor((start + end) / 2);
+            await mergeSort(start, mid);
+            await mergeSort(mid + 1, end);
+            await merge(start, mid, end);
+        }
+
+        async function merge(start, mid, end) {
+            // Visualize the range being merged
+            for(let i=start; i<=end; i++) {
+                blocks[i].element.style.backgroundColor = "orange";
+            }
+            await sleep(speed);
+
+            let left = start;
+            let right = mid + 1;
+            let tempArr = [];
+
+            // Standard merge logic to find sorted order
+            while (left <= mid && right <= end) {
+                if (blocks[left].value <= blocks[right].value) {
+                    tempArr.push(blocks[left++]);
+                } else {
+                    tempArr.push(blocks[right++]);
+                }
+            }
+            while (left <= mid) tempArr.push(blocks[left++]);
+            while (right <= end) tempArr.push(blocks[right++]);
+
+            // Now animate the movement to match tempArr
+            // This is complex in-place. We will overwrite the main array 
+            // and animate the DOM elements moving to their new index `i`.
+            
+            for (let i = 0; i < tempArr.length; i++) {
+                const targetIdx = start + i;
+                const correctObj = tempArr[i];
+                
+                // Find where this object currently lives in the main array
+                // (Note: In a real-world optimized sort, we wouldn't search, 
+                // but for visualization with object references, this ensures we move the right DOM element)
+                let currentIdx = -1;
+                for(let k=0; k<blocks.length; k++) {
+                    if(blocks[k] === correctObj) {
+                        currentIdx = k;
+                        break;
+                    }
+                }
+
+                // If the element is not already in the target position, move it visually
+                if (currentIdx !== targetIdx && currentIdx !== -1) {
+                   await moveElement(currentIdx, targetIdx);
+                }
+                
+                blocks[targetIdx].element.style.backgroundColor = "var(--sorted-color)";
+            }
+            
+            // Helper function just for Merge Sort to handle complex shifting
+            // This function effectively performs an insertion-like shift visually
+            async function moveElement(fromIdx, toIdx) {
+                if(fromIdx === toIdx) return;
+                
+                const movingObj = blocks[fromIdx];
+                const movingEl = movingObj.element;
+                
+                // Remove from old position array-wise
+                blocks.splice(fromIdx, 1);
+                // Insert at new position array-wise
+                blocks.splice(toIdx, 0, movingObj);
+
+                // Re-calculate ALL positions to snap them to the grid
+                // This ensures the visual gap closes and opens correctly
+                repositionAll();
+                await sleep(speed);
+            }
+        }
+        
+        function repositionAll() {
+            const width = 600 / blocks.length; 
+            blocks.forEach((obj, index) => {
+                obj.element.style.left = `${index * width + 10}px`;
+            });
+        }
+
+
+        // --- MAIN CONTROL ---
+
+        async function startSort() {
+            const algo = document.getElementById("algoSelect").value;
+            btnSort.disabled = true;
+            document.getElementById("algoSelect").disabled = true;
+
+            if (algo === "bubble") await bubbleSort();
+            if (algo === "simple") await selectionSort();
+            if (algo === "quick") await quickSort();
+            if (algo === "merge") await mergeSort();
+
+            // Final Finish Animation (Turn all green)
+            for(let b of blocks) {
+                b.element.style.backgroundColor = "var(--sorted-color)";
+            }
+            
+            btnSort.disabled = false;
+            document.getElementById("algoSelect").disabled = false;
+        }
+
+        // Init
+        generateArray();
+
+    </script>
+</body>
+</html>
