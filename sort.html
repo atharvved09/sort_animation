@@ -3,13 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sorting Algorithm Visualizer</title>
+    <title>Sorting Visualizer with Metrics</title>
     <style>
         :root {
-            --primary-color: #3b82f6;
-            --secondary-color: #ef4444;
-            --pivot-color: #10b981;
-            --sorted-color: #8b5cf6;
+            --primary-color: #3b82f6;   /* Blue: Default */
+            --compare-color: #f59e0b;   /* Orange: Comparing */
+            --swap-color: #ef4444;      /* Red: Swapping */
+            --pivot-color: #10b981;     /* Green: Pivot/Temp Sorted */
+            --fixed-color: #8b5cf6;     /* Purple: Fully Sorted/Fixed */
         }
 
         body {
@@ -22,10 +23,22 @@
             padding: 20px;
         }
 
-        h1 {
-            color: #1f2937;
+        h1 { color: #1f2937; margin-bottom: 10px; }
+
+        /* Dashboard for stats */
+        .stats {
+            display: flex;
+            gap: 20px;
+            background: #fff;
+            padding: 10px 25px;
+            border-radius: 50px;
             margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            font-weight: bold;
+            color: #374151;
         }
+
+        .stats span { color: var(--secondary-color); }
 
         .controls {
             display: flex;
@@ -50,14 +63,8 @@
             transition: background 0.2s;
         }
 
-        button:hover {
-            background-color: #2563eb;
-        }
-
-        button:disabled {
-            background-color: #9ca3af;
-            cursor: not-allowed;
-        }
+        button:hover { background-color: #2563eb; }
+        button:disabled { background-color: #9ca3af; cursor: not-allowed; }
 
         select, input {
             padding: 10px;
@@ -71,7 +78,6 @@
             gap: 10px;
         }
 
-        /* Visualization Container */
         #container {
             position: relative;
             width: 600px;
@@ -85,7 +91,6 @@
         .bar {
             position: absolute;
             bottom: 0;
-            width: 40px; /* Width of each bar */
             background-color: var(--primary-color);
             border-radius: 5px 5px 0 0;
             display: flex;
@@ -95,20 +100,18 @@
             color: white;
             font-weight: bold;
             font-size: 14px;
-            transition: height 0.2s, background-color 0.2s;
-            /* The 'left' property will be animated via JS for movement */
             transition: left 0.3s ease-in-out; 
         }
-
-        .bar-label {
-            margin-bottom: 5px;
-        }
-
     </style>
 </head>
 <body>
 
     <h1>Sorting Visualizer</h1>
+
+    <div class="stats">
+        <div>Algorithm: <span id="algoName">None</span></div>
+        <div>Swaps/Ops: <span id="swapCount" style="color: var(--swap-color)">0</span></div>
+    </div>
 
     <div class="controls">
         <button onclick="generateArray()">Generate New Array</button>
@@ -123,7 +126,6 @@
         <div class="speed-control">
             <label for="speed">Speed:</label>
             <input type="range" id="speed" min="100" max="1000" value="500">
-            <span>(Slow <-> Fast)</span>
         </div>
 
         <button onclick="startSort()" id="btnSort">Start Sorting</button>
@@ -135,82 +137,76 @@
         const container = document.getElementById("container");
         const speedInput = document.getElementById("speed");
         const btnSort = document.getElementById("btnSort");
+        const swapDisplay = document.getElementById("swapCount");
+        const algoNameDisplay = document.getElementById("algoName");
         
         let blocks = [];
         let speed = 500;
+        let swapCounter = 0;
         
-        // Updates speed dynamically
         speedInput.addEventListener('input', (e) => {
-            speed = 1100 - e.target.value; // Invert logic: Higher value = lower delay
+            speed = 1100 - e.target.value; 
         });
 
-        // Generate 10 Random Numbers
         function generateArray(size = 10) {
             container.innerHTML = "";
             blocks = [];
-            // Calculate width based on container size
+            swapCounter = 0;
+            swapDisplay.innerText = 0;
+            algoNameDisplay.innerText = "None";
+
             const width = 600 / size; 
             
             for (let i = 0; i < size; i++) {
-                const value = Math.floor(Math.random() * 90) + 10; // Random 10-100
+                const value = Math.floor(Math.random() * 90) + 10;
                 
                 const bar = document.createElement("div");
                 bar.classList.add("bar");
-                bar.style.height = `${value * 3}px`; // Scale height for visibility
-                bar.style.left = `${i * width + 10}px`; // Positioning with some gap
+                bar.style.height = `${value * 3}px`;
+                bar.style.left = `${i * width + 10}px`;
                 bar.style.width = `${width - 20}px`;
-                
-                // Add text inside
                 bar.innerText = value;
 
-                // Store object with Value and DOM Element
-                blocks.push({
-                    value: value,
-                    element: bar
-                });
-
+                blocks.push({ value: value, element: bar });
                 container.appendChild(bar);
             }
         }
 
-        // Helper: Sleep to create animation delay
         function sleep(ms) {
             return new Promise(resolve => setTimeout(resolve, ms));
         }
 
-        // Helper: Swap DOM positions and Array positions
+        // --- CORE SWAP FUNCTION ---
         async function swap(index1, index2) {
             if (index1 === index2) return;
+
+            // Increment Counter
+            swapCounter++;
+            swapDisplay.innerText = swapCounter;
 
             const el1 = blocks[index1].element;
             const el2 = blocks[index2].element;
 
-            // Visual Highlight
-            el1.style.backgroundColor = "var(--secondary-color)";
-            el2.style.backgroundColor = "var(--secondary-color)";
+            // Visual: Red for Swapping
+            el1.style.backgroundColor = "var(--swap-color)";
+            el2.style.backgroundColor = "var(--swap-color)";
 
-            // Wait a moment to see comparison
             await sleep(speed);
 
-            // Swap Style Left (Visual Movement)
-            const style1 = window.getComputedStyle(el1);
-            const style2 = window.getComputedStyle(el2);
-            
+            // Swap Visual Positions
             const transform1 = el1.style.left;
             const transform2 = el2.style.left;
-
             el1.style.left = transform2;
             el2.style.left = transform1;
 
-            // Wait for CSS transition
             await sleep(speed);
 
-            // Swap in Array
+            // Swap Data
             let temp = blocks[index1];
             blocks[index1] = blocks[index2];
             blocks[index2] = temp;
 
-            // Remove Highlight
+            // Reset Color (unless it's supposed to be fixed, handled by algo)
             el1.style.backgroundColor = "var(--primary-color)";
             el2.style.backgroundColor = "var(--primary-color)";
         }
@@ -221,52 +217,48 @@
         async function bubbleSort() {
             for (let i = 0; i < blocks.length; i++) {
                 for (let j = 0; j < blocks.length - i - 1; j++) {
-                    // Highlight comparison
-                    blocks[j].element.style.backgroundColor = "orange";
-                    blocks[j+1].element.style.backgroundColor = "orange";
+                    blocks[j].element.style.backgroundColor = "var(--compare-color)";
+                    blocks[j+1].element.style.backgroundColor = "var(--compare-color)";
                     
+                    await sleep(speed / 2);
+
                     if (blocks[j].value > blocks[j + 1].value) {
                         await swap(j, j + 1);
-                    } else {
-                        // Just wait if no swap, to show we compared
-                        await sleep(speed / 2);
-                        blocks[j].element.style.backgroundColor = "var(--primary-color)";
-                        blocks[j+1].element.style.backgroundColor = "var(--primary-color)";
-                    }
+                    } 
+                    
+                    // Reset colors
+                    blocks[j].element.style.backgroundColor = "var(--primary-color)";
+                    blocks[j+1].element.style.backgroundColor = "var(--primary-color)";
                 }
-                blocks[blocks.length - 1 - i].element.style.backgroundColor = "var(--sorted-color)";
+                // Highlight Fixed Element (Purple)
+                blocks[blocks.length - 1 - i].element.style.backgroundColor = "var(--fixed-color)";
             }
-            // Mark last one
-            blocks[0].element.style.backgroundColor = "var(--sorted-color)";
+            blocks[0].element.style.backgroundColor = "var(--fixed-color)";
         }
 
-        // 2. Simple Sort (Selection Sort)
+        // 2. Selection Sort
         async function selectionSort() {
             for (let i = 0; i < blocks.length; i++) {
                 let minIdx = i;
-                blocks[i].element.style.backgroundColor = "orange"; // Current Position
+                blocks[i].element.style.backgroundColor = "var(--compare-color)";
 
                 for (let j = i + 1; j < blocks.length; j++) {
-                    blocks[j].element.style.backgroundColor = "red"; // Scanning
-
-                    await sleep(speed / 2);
+                    blocks[j].element.style.backgroundColor = "var(--swap-color)"; // Scanning
+                    await sleep(speed / 4);
 
                     if (blocks[j].value < blocks[minIdx].value) {
-                        if (minIdx !== i) {
-                            blocks[minIdx].element.style.backgroundColor = "var(--primary-color)";
-                        }
+                        if (minIdx !== i) blocks[minIdx].element.style.backgroundColor = "var(--primary-color)";
                         minIdx = j;
-                        blocks[minIdx].element.style.backgroundColor = "var(--pivot-color)"; // New Min Found
+                        blocks[minIdx].element.style.backgroundColor = "var(--pivot-color)"; // New Min
                     } else {
                         blocks[j].element.style.backgroundColor = "var(--primary-color)";
                     }
                 }
 
-                if (minIdx !== i) {
-                    await swap(i, minIdx);
-                }
+                if (minIdx !== i) await swap(i, minIdx);
                 
-                blocks[i].element.style.backgroundColor = "var(--sorted-color)";
+                // Highlight Fixed Element
+                blocks[i].element.style.backgroundColor = "var(--fixed-color)";
             }
         }
 
@@ -276,28 +268,24 @@
                 let pivotIdx = await partition(start, end);
                 await quickSort(start, pivotIdx - 1);
                 await quickSort(pivotIdx + 1, end);
-            } else if (start >= 0 && end >= 0 && start === end) {
-                 blocks[start].element.style.backgroundColor = "var(--sorted-color)";
+            } else if (start === end) {
+                 blocks[start].element.style.backgroundColor = "var(--fixed-color)";
             }
         }
 
         async function partition(start, end) {
             let pivotValue = blocks[end].value;
-            blocks[end].element.style.backgroundColor = "var(--pivot-color)"; // Pivot visual
-            
+            blocks[end].element.style.backgroundColor = "var(--pivot-color)";
             let pivotIndex = start;
 
             for (let i = start; i < end; i++) {
-                blocks[i].element.style.backgroundColor = "orange"; // Current element
+                blocks[i].element.style.backgroundColor = "var(--compare-color)";
                 await sleep(speed / 2);
 
                 if (blocks[i].value < pivotValue) {
                     await swap(i, pivotIndex);
-                    // Reset color after swap
-                    blocks[i].element.style.backgroundColor = "var(--primary-color)"; 
-                    // blocks[pivotIndex] was just swapped, reset it too
-                    if(pivotIndex !== i) blocks[pivotIndex].element.style.backgroundColor = "var(--primary-color)"; 
-                    
+                    blocks[i].element.style.backgroundColor = "var(--primary-color)";
+                    if(pivotIndex !== i) blocks[pivotIndex].element.style.backgroundColor = "var(--primary-color)";
                     pivotIndex++;
                 } else {
                     blocks[i].element.style.backgroundColor = "var(--primary-color)";
@@ -305,16 +293,16 @@
             }
             
             await swap(pivotIndex, end);
-            blocks[pivotIndex].element.style.backgroundColor = "var(--sorted-color)"; // Pivot is now sorted
+            
+            // Highlight Fixed Pivot
+            blocks[pivotIndex].element.style.backgroundColor = "var(--fixed-color)";
             return pivotIndex;
         }
 
         // 4. Merge Sort
-        // Visualizing Merge Sort in-place is tricky. 
-        // We will animate the movement of values by calculating where they should go.
         async function mergeSort(start = 0, end = blocks.length - 1) {
             if (start >= end) return;
-
+            
             const mid = Math.floor((start + end) / 2);
             await mergeSort(start, mid);
             await mergeSort(mid + 1, end);
@@ -322,17 +310,10 @@
         }
 
         async function merge(start, mid, end) {
-            // Visualize the range being merged
-            for(let i=start; i<=end; i++) {
-                blocks[i].element.style.backgroundColor = "orange";
-            }
-            await sleep(speed);
-
-            let left = start;
-            let right = mid + 1;
             let tempArr = [];
+            let left = start; 
+            let right = mid + 1;
 
-            // Standard merge logic to find sorted order
             while (left <= mid && right <= end) {
                 if (blocks[left].value <= blocks[right].value) {
                     tempArr.push(blocks[left++]);
@@ -343,85 +324,64 @@
             while (left <= mid) tempArr.push(blocks[left++]);
             while (right <= end) tempArr.push(blocks[right++]);
 
-            // Now animate the movement to match tempArr
-            // This is complex in-place. We will overwrite the main array 
-            // and animate the DOM elements moving to their new index `i`.
-            
+            // Visual Movement
             for (let i = 0; i < tempArr.length; i++) {
                 const targetIdx = start + i;
                 const correctObj = tempArr[i];
                 
-                // Find where this object currently lives in the main array
-                // (Note: In a real-world optimized sort, we wouldn't search, 
-                // but for visualization with object references, this ensures we move the right DOM element)
-                let currentIdx = -1;
-                for(let k=0; k<blocks.length; k++) {
-                    if(blocks[k] === correctObj) {
-                        currentIdx = k;
-                        break;
-                    }
-                }
+                let currentIdx = blocks.indexOf(correctObj);
 
-                // If the element is not already in the target position, move it visually
-                if (currentIdx !== targetIdx && currentIdx !== -1) {
-                   await moveElement(currentIdx, targetIdx);
+                if (currentIdx !== targetIdx) {
+                    // Count this as an 'operation/swap' for complexity measure
+                    swapCounter++;
+                    swapDisplay.innerText = swapCounter;
+
+                    await moveElement(currentIdx, targetIdx);
                 }
                 
-                blocks[targetIdx].element.style.backgroundColor = "var(--sorted-color)";
+                // Highlight Fixed (Sorted portion)
+                // Note: In merge sort, elements are "fixed" relative to their sub-array,
+                // but we color them purple to show the merge process finishing.
+                blocks[targetIdx].element.style.backgroundColor = "var(--fixed-color)";
             }
-            
-            // Helper function just for Merge Sort to handle complex shifting
-            // This function effectively performs an insertion-like shift visually
-            async function moveElement(fromIdx, toIdx) {
-                if(fromIdx === toIdx) return;
-                
-                const movingObj = blocks[fromIdx];
-                const movingEl = movingObj.element;
-                
-                // Remove from old position array-wise
-                blocks.splice(fromIdx, 1);
-                // Insert at new position array-wise
-                blocks.splice(toIdx, 0, movingObj);
-
-                // Re-calculate ALL positions to snap them to the grid
-                // This ensures the visual gap closes and opens correctly
-                repositionAll();
-                await sleep(speed);
-            }
+            await sleep(speed);
         }
-        
-        function repositionAll() {
+
+        async function moveElement(fromIdx, toIdx) {
+            const movingObj = blocks[fromIdx];
+            blocks.splice(fromIdx, 1);
+            blocks.splice(toIdx, 0, movingObj);
+
+            // Re-render positions
             const width = 600 / blocks.length; 
             blocks.forEach((obj, index) => {
                 obj.element.style.left = `${index * width + 10}px`;
             });
+            await sleep(speed);
         }
 
-
-        // --- MAIN CONTROL ---
-
+        // --- MAIN ---
         async function startSort() {
-            const algo = document.getElementById("algoSelect").value;
+            const algoSelect = document.getElementById("algoSelect");
+            const algo = algoSelect.value;
+            algoNameDisplay.innerText = algoSelect.options[algoSelect.selectedIndex].text;
+            
             btnSort.disabled = true;
-            document.getElementById("algoSelect").disabled = true;
+            algoSelect.disabled = true;
 
             if (algo === "bubble") await bubbleSort();
             if (algo === "simple") await selectionSort();
             if (algo === "quick") await quickSort();
             if (algo === "merge") await mergeSort();
 
-            // Final Finish Animation (Turn all green)
-            for(let b of blocks) {
-                b.element.style.backgroundColor = "var(--sorted-color)";
-            }
+            // Ensure all are purple at end (sanity check)
+            blocks.forEach(b => b.element.style.backgroundColor = "var(--fixed-color)");
             
             btnSort.disabled = false;
-            document.getElementById("algoSelect").disabled = false;
+            algoSelect.disabled = false;
         }
 
-        // Init
         generateArray();
-
     </script>
 </body>
 </html>
